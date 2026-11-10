@@ -51,20 +51,23 @@ end
 config = io.open(SCRIPT_DIRECTORY .. "flap-axis-detent-v2.cfg", "r")
 
 if config ~= nil then
-	flap_axis = tonumber(config:read())
+	flap_axis_index = tonumber(config:read())
 	config:close()
 end
 
-if flap_axis == nil then
+if flap_axis_index == nil then
 	logMsg("flap-axis-detent: no flaps axis found and no cached axis - assign your flap lever to the Flaps function and reload Lua scripts")
 elseif flap_ratio_dataref ~= nil then
-	flap_axis_assignment = get("sim/joystick/joystick_axis_assignments", flap_axis)
-	flap_axis_reverse = get("sim/joystick/joystick_axis_reverse", flap_axis)
+	flap_axis_assignment = get("sim/joystick/joystick_axis_assignments", flap_axis_index)
+	flap_axis_reverse = get("sim/joystick/joystick_axis_reverse", flap_axis_index)
 
 	if flap_axis_assignment == 0 or flap_axis_assignment == 11 then
-		dataref("flap_axis_min", "sim/joystick/joystick_axis_minimum", "readonly", flap_axis)
-		dataref("flap_axis_max", "sim/joystick/joystick_axis_maximum", "readonly", flap_axis)
-		dataref("flap_axis", "sim/joystick/joystick_axis_values", "readonly", flap_axis)
+		-- NOTE: binding "flap_axis" below rebinds that global to the LIVE
+		-- AXIS VALUE at flap_axis_index - from here on, only flap_axis_index
+		-- may be used to address the axis in the joystick arrays
+		dataref("flap_axis_min", "sim/joystick/joystick_axis_minimum", "readonly", flap_axis_index)
+		dataref("flap_axis_max", "sim/joystick/joystick_axis_maximum", "readonly", flap_axis_index)
+		dataref("flap_axis", "sim/joystick/joystick_axis_values", "readonly", flap_axis_index)
 		dataref("flap_detents", "sim/aircraft/controls/acf_flap_detents", "readonly")
 		dataref("flap_ratio", flap_ratio_dataref, "writeable")
 
@@ -74,15 +77,14 @@ elseif flap_ratio_dataref ~= nil then
 		-- with "Airfoil AOAinduced NAN"
 		if flap_detents >= 1 and flap_axis_max > flap_axis_min then
 			-- Unassign the axis through the dataref itself instead of
-			-- set_axis_assignment(), which goes through FlyWithLua's own
-			-- axis bookkeeping and can land on a different axis than the
-			-- one we detected through the datarefs
-			set_array("sim/joystick/joystick_axis_assignments", flap_axis, 0)
+			-- set_axis_assignment(), so the index space is guaranteed to be
+			-- the same one we detected the axis in
+			set_array("sim/joystick/joystick_axis_assignments", flap_axis_index, 0)
 
-			if get("sim/joystick/joystick_axis_assignments", flap_axis) == 0 then
+			if get("sim/joystick/joystick_axis_assignments", flap_axis_index) == 0 then
 				logMsg(string.format(
 					"flap-axis-detent: active on axis %d (reverse %d, range [%g, %g]), %d detents, writing %s",
-					flap_axis, flap_axis_reverse, flap_axis_min, flap_axis_max, flap_detents, flap_ratio_dataref))
+					flap_axis_index, flap_axis_reverse, flap_axis_min, flap_axis_max, flap_detents, flap_ratio_dataref))
 
 				flap_step = 1.0 / flap_detents
 				flap_axis_last = 0
@@ -107,15 +109,15 @@ elseif flap_ratio_dataref ~= nil then
 
 				do_every_frame("update_flap_ratio()")
 			else
-				logMsg("flap-axis-detent: could not unassign axis " .. flap_axis .. ", not taking it over")
+				logMsg("flap-axis-detent: could not unassign axis " .. flap_axis_index .. ", not taking it over")
 			end
 		else
 			logMsg("flap-axis-detent: disabled (flap detents = " .. tostring(flap_detents)
-				.. ", axis " .. tostring(flap_axis) .. " range = [" .. tostring(flap_axis_min)
+				.. ", axis " .. tostring(flap_axis_index) .. " range = [" .. tostring(flap_axis_min)
 				.. ", " .. tostring(flap_axis_max) .. "])")
 		end
 	else
-		logMsg("flap-axis-detent: cached axis " .. flap_axis .. " is assigned to function "
+		logMsg("flap-axis-detent: cached axis " .. flap_axis_index .. " is assigned to function "
 			.. flap_axis_assignment .. ", not touching it")
 	end
 end
